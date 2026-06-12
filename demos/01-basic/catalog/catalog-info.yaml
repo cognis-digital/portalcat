@@ -1,0 +1,36 @@
+kind: Component
+metadata:
+  name: orders-api
+  tags: [go, payments]
+spec:
+  type: service
+  owner: team-payments
+  system: commerce
+  dependsOn: [Component:inventory-api, Resource:orders-db]
+---
+kind: Component
+metadata:
+  name: inventory-api
+spec:
+  type: service
+  owner: team-inventory
+  system: commerce
+---
+kind: Resource
+metadata:
+  name: orders-db
+spec:
+  type: database
+  owner: team-payments
+---
+kind: Group
+metadata:
+  name: team-payments
+spec:
+  type: team
+---
+kind: Group
+metadata:
+  name: team-inventory
+spec:
+  type: team

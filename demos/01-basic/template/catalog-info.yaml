@@ -1,0 +1,7 @@
+kind: Component
+metadata:
+  name: {{ name }}
+spec:
+  type: service
+  owner: {{ owner }}
+  system: {{ system }}
