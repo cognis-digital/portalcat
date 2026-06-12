@@ -46,6 +46,18 @@ def _build_parser() -> argparse.ArgumentParser:
     i.add_argument("path")
     i.add_argument("ref")
 
+    dp = sub.add_parser("deps", help="What an entity (transitively) depends on.")
+    dp.add_argument("path")
+    dp.add_argument("ref")
+
+    orp = sub.add_parser("orphans", help="Find unowned / leaf / isolated entities.")
+    orp.add_argument("path")
+    orp.add_argument("--format", choices=("table", "json"), default="table")
+
+    g = sub.add_parser("graph", help="Export the dependency graph as Mermaid.")
+    g.add_argument("path")
+    g.add_argument("--out", help="Write the Mermaid diagram to a file.")
+
     sc = sub.add_parser("scaffold", help="Render a template tree into a new component.")
     sc.add_argument("template")
     sc.add_argument("dest")
@@ -117,6 +129,55 @@ def _run_impact(a) -> int:
     return 0
 
 
+def _run_deps(a) -> int:
+    from portalcat import dependencies_of
+    try:
+        deps = dependencies_of(load_catalog(a.path), a.ref)
+    except (OSError, PortalError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"portalcat deps — {a.ref} depends on {len(deps)} entity(ies)")
+    for d in deps:
+        print(f"  {d}")
+    return 0
+
+
+def _run_orphans(a) -> int:
+    from portalcat import find_orphans
+    try:
+        res = find_orphans(load_catalog(a.path))
+    except (OSError, PortalError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if a.format == "json":
+        print(json.dumps(res, indent=2))
+    else:
+        print("portalcat orphans")
+        print("=" * 56)
+        print(f"  unowned ({len(res['unowned'])}): {', '.join(res['unowned']) or '(none)'}")
+        print(f"  no dependents ({len(res['no_dependents'])}): "
+              f"{', '.join(res['no_dependents']) or '(none)'}")
+        print(f"  isolated ({len(res['isolated'])}): "
+              f"{', '.join(res['isolated']) or '(none)'}")
+    return 0
+
+
+def _run_graph(a) -> int:
+    from portalcat import to_mermaid
+    try:
+        diagram = to_mermaid(load_catalog(a.path))
+    except (OSError, PortalError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if a.out:
+        with open(a.out, "w", encoding="utf-8") as fh:
+            fh.write(diagram + "\n")
+        print(f"wrote {a.out}", file=sys.stderr)
+    else:
+        print(diagram)
+    return 0
+
+
 def _run_scaffold(a) -> int:
     values = {}
     for item in a.set:
@@ -153,6 +214,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         return _run_owner(args)
     if args.command == "impact":
         return _run_impact(args)
+    if args.command == "deps":
+        return _run_deps(args)
+    if args.command == "orphans":
+        return _run_orphans(args)
+    if args.command == "graph":
+        return _run_graph(args)
     if args.command == "scaffold":
         return _run_scaffold(args)
     if args.command == "mcp":

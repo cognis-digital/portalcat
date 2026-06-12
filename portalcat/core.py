@@ -304,6 +304,71 @@ def impact_of(entities: Dict[str, Dict[str, Any]], ref: str) -> List[str]:
     return sorted(seen)
 
 
+def dependencies_of(entities: Dict[str, Dict[str, Any]], ref: str) -> List[str]:
+    """Everything ``ref`` (transitively) depends on."""
+    ref = _normalize_ref(ref)
+    graph = build_graph(entities)
+    depends_on = graph["depends_on"]
+    seen: set = set()
+    stack = [ref]
+    while stack:
+        cur = stack.pop()
+        for dep in depends_on.get(cur, []):
+            if dep not in seen:
+                seen.add(dep)
+                stack.append(dep)
+    return sorted(seen)
+
+
+def find_orphans(entities: Dict[str, Dict[str, Any]]) -> Dict[str, List[str]]:
+    """Classify entities that may need attention.
+
+    * unowned       — Component/API/Resource with no owner
+    * no_dependents — nothing depends on them (leaf, possibly dead)
+    * isolated      — no deps in or out (and not a Group/User)
+    """
+    graph = build_graph(entities)
+    depended_by = graph["depended_by"]
+    depends_on = graph["depends_on"]
+    unowned, no_dependents, isolated = [], [], []
+    for ref, e in entities.items():
+        kind = e.get("kind")
+        spec = e.get("spec", {}) or {}
+        if kind in ("Component", "API", "Resource") and not spec.get("owner"):
+            unowned.append(ref)
+        if kind in ("Component", "API", "Resource", "System"):
+            if not depended_by.get(ref):
+                no_dependents.append(ref)
+            if not depended_by.get(ref) and not depends_on.get(ref):
+                isolated.append(ref)
+    return {"unowned": sorted(unowned),
+            "no_dependents": sorted(no_dependents),
+            "isolated": sorted(isolated)}
+
+
+def to_mermaid(entities: Dict[str, Dict[str, Any]]) -> str:
+    """Render the dependency graph as a Mermaid ``graph LR`` diagram."""
+    graph = build_graph(entities)
+    lines = ["graph LR"]
+
+    def node_id(ref: str) -> str:
+        return re.sub(r"[^A-Za-z0-9]", "_", ref)
+
+    # Declare nodes with a readable label.
+    declared = set()
+    for ref in entities:
+        nid = node_id(ref)
+        if nid not in declared:
+            label = ref.replace('"', "'")
+            lines.append(f'    {nid}["{label}"]')
+            declared.add(nid)
+    # Edges: A depends on B  =>  A --> B
+    for ref, deps in graph["depends_on"].items():
+        for d in deps:
+            lines.append(f"    {node_id(ref)} --> {node_id(d)}")
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------------------- #
 # Scaffolder
 # --------------------------------------------------------------------------- #
