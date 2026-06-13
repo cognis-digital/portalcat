@@ -82,3 +82,33 @@ branding.
 
 Part of the **Cognis Neural Suite** — 300+ source-available tools organized across 12 domains under the JTF MERIDIAN command structure. See the [suite on GitHub](https://github.com/cognis-digital) and [jtf-meridian](https://github.com/cognis-digital/jtf-meridian) for how the pieces fit together.
 <!-- cognis:domains:end -->
+
+## Usage — step by step
+
+`portalcat` indexes `catalog-info.yaml` entities into an ownership + dependency graph you can validate, query, diagram, and scaffold from.
+
+1. **Install** (pure stdlib, Python 3.10+):
+   ```bash
+   pip install "git+https://github.com/cognis-digital/portalcat.git"
+   ```
+2. **Summarize and validate** a catalog directory (validate exits non-zero on errors, so it doubles as a gate):
+   ```bash
+   portalcat summary ./repo
+   portalcat validate ./repo
+   ```
+3. **Answer ownership / blast-radius questions** about an entity:
+   ```bash
+   portalcat owner  ./repo Component:orders-api
+   portalcat impact ./repo Resource:orders-db   # what transitively depends on it
+   portalcat deps   ./repo Component:orders-api  # what it depends on
+   ```
+4. **Use the output** — find orphans (`--format json`) or export the dependency graph as Mermaid:
+   ```bash
+   portalcat orphans ./repo --format json
+   portalcat graph ./repo --out deps.mmd
+   ```
+5. **Scaffold a new component** from a template tree (`{{ name }}` placeholders), or run as a local MCP server:
+   ```bash
+   portalcat scaffold ./template ./new-service --set name=billing-api --set owner=team-fin
+   portalcat mcp
+   ```
